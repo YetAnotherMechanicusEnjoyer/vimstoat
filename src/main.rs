@@ -14,13 +14,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         terminal.draw(|f| ui::render(f, &app))?;
 
         // Handle Keyboard Events
-        if event::poll(std::time::Duration::from_millis(16))? {
-            if let Event::Key(key) = event::read()? {
-                app.handle_key_event(key).await?;
+        if event::poll(std::time::Duration::from_millis(16))?
+            && let Event::Key(key) = event::read()?
+        {
+            app.handle_key_event(key).await?;
 
-                if app.should_quit {
-                    break;
-                }
+            if app.should_quit {
+                break;
             }
         }
     }
