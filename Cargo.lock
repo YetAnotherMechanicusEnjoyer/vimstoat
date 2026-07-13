@@ -6431,7 +6431,6 @@ name = "vimstoat"
 version = "0.1.0"
 dependencies = [
  "cargo-husky",
- "crossterm",
  "keyring-lib",
  "ratatui",
  "stoat-rs",
