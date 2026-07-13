@@ -1,4 +1,12 @@
 #!/bin/sh
-echo "Auto-formatting Rust code..."
+
+echo "Formatting code..."
 cargo fmt
-git diff --name-only --cached | grep '\.rs$' | xargs -r git add
+
+# Get a list of staged Rust files
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.rs$' || true)
+
+if [ -n "$STAGED_FILES" ]; then
+    # Re-add the staged files so that the formatted changes are included in the commit
+    echo "$STAGED_FILES" | xargs git add
+fi
