@@ -10,5 +10,4 @@ stoat-rs = "0.2.5"
 tokio = "1.52.3"
 
 [dev-dependencies]
-cargo-husky = "1.5.0"
-features = ["precommit-hook", "run-cargo-fmt", "run-cargo-clippy"]
+cargo-husky = { version = "1.5.0", features = ["precommit-hook", "run-cargo-fmt", "run-cargo-clippy"] }
