@@ -1,6 +1,8 @@
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 
+use crate::action::Action;
 use crate::api::auth::Auth;
+use crate::input::InputState;
 use crate::{Result, cache::CacheStore};
 
 pub enum AppState {
@@ -16,6 +18,7 @@ pub struct App {
     pub auth: Auth,
     pub username: String,
     pub should_quit: bool,
+    pub input_state: InputState,
     #[allow(unused)]
     pub cache: CacheStore,
 }
@@ -47,6 +50,7 @@ impl App {
             username,
             should_quit: false,
             cache,
+            input_state: InputState::default(),
         })
     }
 
@@ -85,9 +89,10 @@ impl App {
             },
             AppState::ValidatingToken => {}
             AppState::LoggedIn => {
-                if key.code == KeyCode::Char('q') {
+                let action = self.input_state.process_key_event(key);
+                if let Some(Action::Quit) = action {
                     self.should_quit = true;
-                }
+                };
             }
             AppState::Error(_) => {
                 if matches!(key.code, KeyCode::Char(_) | KeyCode::Esc | KeyCode::Enter) {
