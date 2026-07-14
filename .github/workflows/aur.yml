@@ -85,4 +85,4 @@ jobs:
           cd "${{ matrix.pkgname }}"
 
           git add PKGBUILD .SRCINFO
-          git commit -m "Update ${{ matrix.pkgname }} to version ${{ steps.version_extract.outputs.VERSION }}" && git push || exit 0
+          git commit -m "release: ${{ matrix.pkgname }} to version ${{ steps.version_extract.outputs.VERSION }}" && git push || exit 0
