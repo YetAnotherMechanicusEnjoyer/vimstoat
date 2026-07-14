@@ -6,10 +6,14 @@ use crate::action::Action;
 
 #[derive(Clone, Copy)]
 pub enum InputMode {
+    #[allow(unused)]
     Normal,
     UI,
+    #[allow(unused)]
     Insert,
+    #[allow(unused)]
     Command,
+    #[allow(unused)]
     Visual,
 }
 
