@@ -1,10 +1,12 @@
+mod api;
 mod app;
 mod cache;
 mod error;
-mod ui;
+mod state;
 
 use app::App;
 use ratatui::crossterm::event::{self, Event};
+use state::ui;
 
 pub type Result<T> = anyhow::Result<T>;
 
@@ -24,6 +26,7 @@ async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
         terminal.draw(|f| ui::render(f, &app))?;
 
         // Handle Keyboard Events
+        // We limit the poll rate to about 60 frames per second.
         if event::poll(std::time::Duration::from_millis(16))?
             && let Event::Key(key) = event::read()?
         {
