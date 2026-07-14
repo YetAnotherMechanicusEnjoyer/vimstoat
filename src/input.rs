@@ -93,7 +93,6 @@ fn type_action(key_event: KeyEvent) -> Option<Action> {
     match key_event.code {
         KeyCode::Char(c) => Some(Action::AppendCharacter(c)),
         KeyCode::Backspace => Some(Action::RemoveCharacter),
-        KeyCode::Delete => Some(Action::RemoveCharacter),
         KeyCode::Enter => Some(Action::Enter),
         KeyCode::Left => Some(Action::CursorLeft),
         KeyCode::Right => Some(Action::CursorRight),
