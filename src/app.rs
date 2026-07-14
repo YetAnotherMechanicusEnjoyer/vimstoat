@@ -17,7 +17,7 @@ pub struct App {
     pub username: String,
     pub should_quit: bool,
     #[allow(unused)]
-    pub db: CacheStore,
+    pub cache: CacheStore,
 }
 
 impl App {
@@ -38,7 +38,7 @@ impl App {
             AppState::InputToken
         };
 
-        let db = CacheStore::new()?;
+        let cache = CacheStore::new()?;
 
         Ok(Self {
             state,
@@ -46,7 +46,7 @@ impl App {
             auth,
             username,
             should_quit: false,
-            db,
+            cache,
         })
     }
 
