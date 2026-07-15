@@ -1,7 +1,9 @@
+mod action;
 mod api;
 mod app;
 mod cache;
 mod error;
+mod input;
 mod state;
 
 use std::{fs, path::PathBuf};
