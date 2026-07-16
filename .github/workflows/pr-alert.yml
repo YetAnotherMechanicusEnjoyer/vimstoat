@@ -1,7 +1,8 @@
 name: PR Alerts
 on:
-  pull_request:
+  pull_request_target:
     types: [opened]
+  workflow_dispatch:
 
 jobs:
   notify:
