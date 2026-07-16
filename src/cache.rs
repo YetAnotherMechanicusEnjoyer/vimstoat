@@ -134,3 +134,106 @@ impl CacheStore {
         Ok(format!("{}:{}", short_name.to_lowercase(), id.as_str()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde::{Deserialize, Serialize};
+    use tempfile::TempDir;
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+    struct MockUser {
+        name: String,
+        age: u8,
+    }
+
+    fn setup_temporary_cache() -> CacheStore {
+        let temp_dir = TempDir::new().expect("Failed to create a temporary directory");
+        let path = temp_dir.path().join("test_cache.db");
+
+        let db = PickleDb::new(
+            &path,
+            pickledb::PickleDbDumpPolicy::AutoDump,
+            pickledb::SerializationMethod::Bin,
+        );
+
+        CacheStore { db, path }
+    }
+
+    #[test]
+    fn test_id_new_valid() {
+        let valid_str = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
+        let id_res = Id::<MockUser>::new(valid_str);
+
+        assert!(id_res.is_ok());
+        let id = id_res.unwrap();
+        assert_eq!(id.as_str(), valid_str);
+        assert_eq!(id.bytes(), valid_str.as_bytes());
+    }
+
+    #[test]
+    fn test_id_new_invalid_size() {
+        let short_str = "01ARZ3NDEKTSV4RRFFQ69G5FA";
+        let id_err = Id::<MockUser>::new(short_str);
+        assert!(id_err.is_err());
+
+        let long_str = "01ARZ3NDEKTSV4RRFFQ69G5FAVV";
+        let id_err = Id::<MockUser>::new(long_str);
+        assert!(id_err.is_err());
+    }
+
+    #[test]
+    fn test_id_debug_formatting() {
+        let valid_str = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
+        let id = Id::<MockUser>::new(valid_str).unwrap();
+
+        let debug_format = format!("{:?}", id);
+        assert_eq!(debug_format, "Id<MockUser>(01ARZ3NDEKTSV4RRFFQ69G5FAV)");
+    }
+
+    #[test]
+    fn test_cache_store_lifecycle() {
+        let mut store = setup_temporary_cache();
+
+        let raw_id = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
+        let id = Id::<MockUser>::new(raw_id).unwrap();
+        let user = MockUser {
+            name: "Alice".to_string(),
+            age: 30,
+        };
+
+        assert!(!store.exists(id.clone()).unwrap(), "Key should not exist");
+        assert!(store.get(id.clone()).is_none(), "Get should return None");
+
+        let set_res = store.set(id.clone(), &user);
+        assert!(set_res.is_ok(), "Insertion failed");
+
+        assert!(
+            store.exists(id.clone()).unwrap(),
+            "Key should exist after set"
+        );
+
+        let cached_user = store.get(id.clone());
+        assert!(cached_user.is_some(), "Value should have been retrieved");
+        assert_eq!(
+            cached_user.unwrap(),
+            user,
+            "Retrieved value does not match the inserted one"
+        );
+
+        let remove_res = store.remove(id.clone());
+        assert!(remove_res.is_ok());
+        assert!(remove_res.unwrap(), "Remove should have returned true");
+
+        assert!(
+            !store.exists(id.clone()).unwrap(),
+            "Key should no longer exist after removal"
+        );
+
+        let remove_again = store.remove(id.clone()).unwrap();
+        assert!(
+            !remove_again,
+            "Remove should have returned false for a non-existent key"
+        );
+    }
+}
