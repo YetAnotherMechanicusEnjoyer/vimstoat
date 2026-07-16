@@ -8,7 +8,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Send to Stoat
+        env:
+          STOAT_WEBHOOK_URL: ${{ secrets.STOAT_WEBHOOK_URL }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
+          if [ -z "$STOAT_WEBHOOK_URL" ]; then
+            echo "Error: Webhook URL secret is not set."
+            exit 1
+          fi
+          
+          # Safely construct JSON payload
+          PAYLOAD=$(jq -n --arg content "New PR opened: $PR_TITLE\n$PR_URL" '{content: $content}')
+          
           curl -X POST -H "Content-Type: application/json" \
-          -d '{"content": "New PR opened: ${{ github.event.pull_request.title }}\n${{ github.event.pull_request.html_url }}"}' \
-          ${{ secrets.STOAT_WEBHOOK_URL }}
+          -d "$PAYLOAD" \
+          "$STOAT_WEBHOOK_URL"
+
