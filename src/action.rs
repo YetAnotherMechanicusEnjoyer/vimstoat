@@ -2,6 +2,8 @@
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Action {
     #[allow(unused)]
+    GoToTopUI,
+    #[allow(unused)]
     AppendCharacter(char),
     RemoveCharacter,
     Enter,

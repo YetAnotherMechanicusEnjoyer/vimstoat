@@ -27,10 +27,19 @@ struct KeyMaps {
 impl Default for KeyMaps {
     fn default() -> Self {
         Self {
-            ui: HashMap::from([(
-                vec![KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)],
-                Action::Quit,
-            )]),
+            ui: HashMap::from([
+                (
+                    vec![KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)],
+                    Action::Quit,
+                ),
+                (
+                    vec![
+                        KeyEvent::new(KeyCode::Char('g'), KeyModifiers::NONE),
+                        KeyEvent::new(KeyCode::Char('g'), KeyModifiers::NONE),
+                    ],
+                    Action::GoToTopUI,
+                ),
+            ]),
             normal: HashMap::new(),
             visual: HashMap::new(),
             typing: HashMap::from([
@@ -84,6 +93,7 @@ impl Default for InputState {
 }
 
 impl InputState {
+    #[allow(unused)]
     fn change_input_mode(&mut self, new_mode: InputMode) {
         self.pending_keys.clear();
         self.input_mode = new_mode;
@@ -190,6 +200,26 @@ mod test {
             state.process_key_event(KeyEvent::new(KeyCode::Left, KeyModifiers::NONE)),
             Some(Action::CursorLeft),
             "Should have moved the cursor left"
+        );
+    }
+
+    #[test]
+    fn multi_keybinding_shortcuts() {
+        let mut state = InputState::default();
+        assert!(
+            state.process_key_event(KeyEvent::new(KeyCode::Char('g'), KeyModifiers::NONE))
+                != Some(Action::GoToTopUI),
+            "Should not called action early"
+        );
+        assert_eq!(
+            state.process_key_event(KeyEvent::new(KeyCode::Char('g'), KeyModifiers::NONE)),
+            Some(Action::GoToTopUI),
+            "Should have go to top UI after second g"
+        );
+        assert!(
+            state.process_key_event(KeyEvent::new(KeyCode::Char('g'), KeyModifiers::NONE))
+                != Some(Action::GoToTopUI),
+            "Should have cleared pending keys"
         );
     }
 }
