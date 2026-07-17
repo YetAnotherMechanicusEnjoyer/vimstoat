@@ -112,21 +112,27 @@ impl InputState {
     pub fn process_key_event(&mut self, key_event: KeyEvent) -> Option<Action> {
         self.pending_keys.push(key_event);
         let key_map = self.key_map();
-
-        let action =
-            key_map
-                .get(&self.pending_keys)
-                .cloned()
-                .or(match (self.input_mode, key_event.code) {
-                    (InputMode::Insert | InputMode::Command, KeyCode::Char(c)) => {
-                        Some(Action::AppendCharacter(c))
-                    }
-                    _ => None,
-                });
+        let action = key_map
+            .get(&self.pending_keys)
+            .cloned()
+            .or(self.handle_typing_event(key_event));
         if action.is_some() || !self.has_potential_pending_key_bindings() {
             self.pending_keys.clear();
         }
         action
+    }
+
+    pub fn handle_typing_event(&self, key_event: KeyEvent) -> Option<Action> {
+        match (self.input_mode, key_event.code) {
+            (InputMode::Insert | InputMode::Command, KeyCode::Char(c)) => {
+                match key_event.modifiers {
+                    KeyModifiers::SHIFT => Some(Action::AppendCharacter(c.to_ascii_uppercase())),
+                    KeyModifiers::NONE => Some(Action::AppendCharacter(c)),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
     }
 }
 
