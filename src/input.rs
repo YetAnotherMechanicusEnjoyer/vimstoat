@@ -24,6 +24,49 @@ struct KeyMaps {
     typing: HashMap<Vec<KeyEvent>, Action>,
 }
 
+impl Default for KeyMaps {
+    fn default() -> Self {
+        Self {
+            ui: HashMap::from([(
+                vec![KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)],
+                Action::Quit,
+            )]),
+            normal: HashMap::new(),
+            visual: HashMap::new(),
+            typing: HashMap::from([
+                (
+                    vec![KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE)],
+                    Action::RemoveCharacter,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)],
+                    Action::Enter,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Left, KeyModifiers::NONE)],
+                    Action::CursorLeft,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Right, KeyModifiers::NONE)],
+                    Action::CursorRight,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Up, KeyModifiers::NONE)],
+                    Action::CursorUp,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)],
+                    Action::CursorDown,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)],
+                    Action::Escape,
+                ),
+            ]),
+        }
+    }
+}
+
 pub struct InputState {
     pub input_mode: InputMode,
     pending_keys: Vec<KeyEvent>,
@@ -35,49 +78,17 @@ impl Default for InputState {
         Self {
             input_mode: InputMode::UI,
             pending_keys: Vec::with_capacity(2),
-            key_maps: KeyMaps {
-                ui: HashMap::from([(
-                    vec![KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)],
-                    Action::Quit,
-                )]),
-                normal: HashMap::new(),
-                visual: HashMap::new(),
-                typing: HashMap::from([
-                    (
-                        vec![KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE)],
-                        Action::RemoveCharacter,
-                    ),
-                    (
-                        vec![KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)],
-                        Action::Enter,
-                    ),
-                    (
-                        vec![KeyEvent::new(KeyCode::Left, KeyModifiers::NONE)],
-                        Action::CursorLeft,
-                    ),
-                    (
-                        vec![KeyEvent::new(KeyCode::Right, KeyModifiers::NONE)],
-                        Action::CursorRight,
-                    ),
-                    (
-                        vec![KeyEvent::new(KeyCode::Up, KeyModifiers::NONE)],
-                        Action::CursorUp,
-                    ),
-                    (
-                        vec![KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)],
-                        Action::CursorDown,
-                    ),
-                    (
-                        vec![KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)],
-                        Action::Escape,
-                    ),
-                ]),
-            },
+            key_maps: KeyMaps::default(),
         }
     }
 }
 
 impl InputState {
+    fn change_input_mode(&mut self, new_mode: InputMode) {
+        self.pending_keys.clear();
+        self.input_mode = new_mode;
+    }
+
     /// Gets respective keymap based on input mode
     fn key_map(&self) -> &HashMap<Vec<KeyEvent>, Action> {
         match self.input_mode {
@@ -116,5 +127,63 @@ impl InputState {
             self.pending_keys.clear();
         }
         action
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+    use crate::{
+        action::Action,
+        input::{InputMode, InputState},
+    };
+
+    #[test]
+    fn single_key_motions() {
+        let mut state = InputState::default();
+        for _ in 0..2 {
+            assert_eq!(
+                state.process_key_event(KeyEvent::new(KeyCode::Null, KeyModifiers::NONE)),
+                None,
+                "Should have no action"
+            );
+            assert_eq!(
+                state.process_key_event(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)),
+                Some(Action::Quit),
+                "Should have done the quit action"
+            );
+        }
+    }
+
+    #[test]
+    fn typing_motions() {
+        let mut state = InputState::default();
+        state.change_input_mode(InputMode::Insert);
+        assert_eq!(
+            state.process_key_event(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)),
+            Some(Action::AppendCharacter('q')),
+            "Should have done appened q"
+        );
+        assert_eq!(
+            state.process_key_event(KeyEvent::new(KeyCode::Char('r'), KeyModifiers::NONE)),
+            Some(Action::AppendCharacter('r')),
+            "Should have appened r"
+        );
+        assert_eq!(
+            state.process_key_event(KeyEvent::new(KeyCode::Char('r'), KeyModifiers::SHIFT)),
+            Some(Action::AppendCharacter('R')),
+            "Should have appened R"
+        );
+        assert_eq!(
+            state.process_key_event(KeyEvent::new(KeyCode::Null, KeyModifiers::NONE)),
+            None,
+            "Should have no action"
+        );
+        assert_eq!(
+            state.process_key_event(KeyEvent::new(KeyCode::Left, KeyModifiers::NONE)),
+            Some(Action::CursorLeft),
+            "Should have moved the cursor left"
+        );
     }
 }

@@ -1,5 +1,5 @@
 /// Action based on user input
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Action {
     #[allow(unused)]
     AppendCharacter(char),
