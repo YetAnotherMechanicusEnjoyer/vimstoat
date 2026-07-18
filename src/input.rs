@@ -24,6 +24,58 @@ struct KeyMaps {
     typing: HashMap<Vec<KeyEvent>, Action>,
 }
 
+impl Default for KeyMaps {
+    fn default() -> Self {
+        Self {
+            ui: HashMap::from([
+                (
+                    vec![KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)],
+                    Action::Quit,
+                ),
+                (
+                    vec![
+                        KeyEvent::new(KeyCode::Char('g'), KeyModifiers::NONE),
+                        KeyEvent::new(KeyCode::Char('g'), KeyModifiers::NONE),
+                    ],
+                    Action::GoToTopUI,
+                ),
+            ]),
+            normal: HashMap::new(),
+            visual: HashMap::new(),
+            typing: HashMap::from([
+                (
+                    vec![KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE)],
+                    Action::RemoveCharacter,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)],
+                    Action::Enter,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Left, KeyModifiers::NONE)],
+                    Action::CursorLeft,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Right, KeyModifiers::NONE)],
+                    Action::CursorRight,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Up, KeyModifiers::NONE)],
+                    Action::CursorUp,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)],
+                    Action::CursorDown,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)],
+                    Action::Escape,
+                ),
+            ]),
+        }
+    }
+}
+
 pub struct InputState {
     pub input_mode: InputMode,
     pending_keys: Vec<KeyEvent>,
@@ -35,49 +87,18 @@ impl Default for InputState {
         Self {
             input_mode: InputMode::UI,
             pending_keys: Vec::with_capacity(2),
-            key_maps: KeyMaps {
-                ui: HashMap::from([(
-                    vec![KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)],
-                    Action::Quit,
-                )]),
-                normal: HashMap::new(),
-                visual: HashMap::new(),
-                typing: HashMap::from([
-                    (
-                        vec![KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE)],
-                        Action::RemoveCharacter,
-                    ),
-                    (
-                        vec![KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)],
-                        Action::Enter,
-                    ),
-                    (
-                        vec![KeyEvent::new(KeyCode::Left, KeyModifiers::NONE)],
-                        Action::CursorLeft,
-                    ),
-                    (
-                        vec![KeyEvent::new(KeyCode::Right, KeyModifiers::NONE)],
-                        Action::CursorRight,
-                    ),
-                    (
-                        vec![KeyEvent::new(KeyCode::Up, KeyModifiers::NONE)],
-                        Action::CursorUp,
-                    ),
-                    (
-                        vec![KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)],
-                        Action::CursorDown,
-                    ),
-                    (
-                        vec![KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)],
-                        Action::Escape,
-                    ),
-                ]),
-            },
+            key_maps: KeyMaps::default(),
         }
     }
 }
 
 impl InputState {
+    #[allow(unused)]
+    fn change_input_mode(&mut self, new_mode: InputMode) {
+        self.pending_keys.clear();
+        self.input_mode = new_mode;
+    }
+
     /// Gets respective keymap based on input mode
     fn key_map(&self) -> &HashMap<Vec<KeyEvent>, Action> {
         match self.input_mode {
@@ -101,20 +122,104 @@ impl InputState {
     pub fn process_key_event(&mut self, key_event: KeyEvent) -> Option<Action> {
         self.pending_keys.push(key_event);
         let key_map = self.key_map();
-
-        let action =
-            key_map
-                .get(&self.pending_keys)
-                .cloned()
-                .or(match (self.input_mode, key_event.code) {
-                    (InputMode::Insert | InputMode::Command, KeyCode::Char(c)) => {
-                        Some(Action::AppendCharacter(c))
-                    }
-                    _ => None,
-                });
+        let action = key_map
+            .get(&self.pending_keys)
+            .cloned()
+            .or(self.handle_typing_event(key_event));
         if action.is_some() || !self.has_potential_pending_key_bindings() {
             self.pending_keys.clear();
         }
         action
+    }
+
+    pub fn handle_typing_event(&self, key_event: KeyEvent) -> Option<Action> {
+        match (self.input_mode, key_event.code) {
+            (InputMode::Insert | InputMode::Command, KeyCode::Char(c)) => {
+                match key_event.modifiers {
+                    KeyModifiers::SHIFT => Some(Action::AppendCharacter(c.to_ascii_uppercase())),
+                    KeyModifiers::NONE => Some(Action::AppendCharacter(c)),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+    use crate::{
+        action::Action,
+        input::{InputMode, InputState},
+    };
+
+    #[test]
+    fn single_key_motions() {
+        let mut state = InputState::default();
+        for _ in 0..2 {
+            assert_eq!(
+                state.process_key_event(KeyEvent::new(KeyCode::Null, KeyModifiers::NONE)),
+                None,
+                "Should have no action"
+            );
+            assert_eq!(
+                state.process_key_event(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)),
+                Some(Action::Quit),
+                "Should have done the quit action"
+            );
+        }
+    }
+
+    #[test]
+    fn typing_motions() {
+        let mut state = InputState::default();
+        state.change_input_mode(InputMode::Insert);
+        assert_eq!(
+            state.process_key_event(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)),
+            Some(Action::AppendCharacter('q')),
+            "Should have done appened q"
+        );
+        assert_eq!(
+            state.process_key_event(KeyEvent::new(KeyCode::Char('r'), KeyModifiers::NONE)),
+            Some(Action::AppendCharacter('r')),
+            "Should have appened r"
+        );
+        assert_eq!(
+            state.process_key_event(KeyEvent::new(KeyCode::Char('r'), KeyModifiers::SHIFT)),
+            Some(Action::AppendCharacter('R')),
+            "Should have appened R"
+        );
+        assert_eq!(
+            state.process_key_event(KeyEvent::new(KeyCode::Null, KeyModifiers::NONE)),
+            None,
+            "Should have no action"
+        );
+        assert_eq!(
+            state.process_key_event(KeyEvent::new(KeyCode::Left, KeyModifiers::NONE)),
+            Some(Action::CursorLeft),
+            "Should have moved the cursor left"
+        );
+    }
+
+    #[test]
+    fn multi_keybinding_shortcuts() {
+        let mut state = InputState::default();
+        assert!(
+            state.process_key_event(KeyEvent::new(KeyCode::Char('g'), KeyModifiers::NONE))
+                != Some(Action::GoToTopUI),
+            "Should not called action early"
+        );
+        assert_eq!(
+            state.process_key_event(KeyEvent::new(KeyCode::Char('g'), KeyModifiers::NONE)),
+            Some(Action::GoToTopUI),
+            "Should have go to top UI after second g"
+        );
+        assert!(
+            state.process_key_event(KeyEvent::new(KeyCode::Char('g'), KeyModifiers::NONE))
+                != Some(Action::GoToTopUI),
+            "Should have cleared pending keys"
+        );
     }
 }
