@@ -162,6 +162,26 @@ impl CacheStore {
         let short_name = full_name.split("::").last().unwrap_or(full_name);
         Ok(format!("{}:{}", short_name.to_lowercase(), id.as_str()))
     }
+
+    pub fn set_messages(
+        &mut self,
+        channel_id: &str,
+        messages: &[crate::models::Message],
+    ) -> Result<()> {
+        let key = format!("messages:{channel_id}");
+        log::info!(
+            "Caching {} messages for channel {channel_id}",
+            messages.len()
+        );
+        self.db.set(&key, &messages.to_vec())?;
+        Ok(())
+    }
+
+    pub fn get_messages(&self, channel_id: &str) -> Option<Vec<crate::models::Message>> {
+        let key = format!("messages:{channel_id}");
+        log::info!("Loading cached messages for channel {channel_id}");
+        self.db.get::<Vec<crate::models::Message>>(&key)
+    }
 }
 
 #[cfg(test)]

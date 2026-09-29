@@ -165,9 +165,23 @@ pub fn handle(app: &mut App, key: KeyEvent) {
             app.store.dm_channels[app.selected_dm_index].has_unread = false;
             app.state = AppState::Dm;
             app.set_input_mode(InputMode::Normal);
-            app.is_loading_messages = true;
             app.store.current_dm_messages.clear();
             app.input_text.clear();
+
+            // Try to load cached messages instantly
+            let has_cached = if let Ok(cache_locked) = app.cache.try_lock()
+                && let Some(cached_msgs) = cache_locked.get_messages(&channel_id)
+                && !cached_msgs.is_empty()
+            {
+                app.store.current_dm_messages = cached_msgs;
+                app.is_loading_messages = false;
+                true
+            } else {
+                app.is_loading_messages = true;
+                false
+            };
+
+            let _ = has_cached; // suppress unused warning
 
             let api_client = app.api_client.clone();
             let app_tx = app.app_tx.clone();
@@ -259,6 +273,7 @@ pub fn handle(app: &mut App, key: KeyEvent) {
 
                         app_tx
                             .send(AppEvent::DmMessagesLoaded(
+                                channel_id,
                                 parsed_messages,
                                 new_users_fetched,
                             ))
@@ -268,7 +283,11 @@ pub fn handle(app: &mut App, key: KeyEvent) {
                     Err(e) => {
                         error!("Error fetching messages: {e}");
                         app_tx
-                            .send(AppEvent::DmMessagesLoaded(Vec::new(), Vec::new()))
+                            .send(AppEvent::DmMessagesLoaded(
+                                channel_id,
+                                Vec::new(),
+                                Vec::new(),
+                            ))
                             .await
                             .ok();
                     }

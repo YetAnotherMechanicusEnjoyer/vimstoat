@@ -23,7 +23,11 @@ use crate::{
 
 pub enum AppEvent {
     DmsLoaded(Vec<DirectMessageChannel>, Vec<crate::models::User>),
-    DmMessagesLoaded(Vec<crate::models::Message>, Vec<crate::models::User>),
+    DmMessagesLoaded(
+        String,
+        Vec<crate::models::Message>,
+        Vec<crate::models::User>,
+    ),
     NewMessage {
         channel_id: String,
         message: crate::models::Message,
@@ -343,12 +347,21 @@ impl App {
                     self.store.users.insert(user.id.clone(), user);
                 }
             }
-            AppEvent::DmMessagesLoaded(messages, new_users) => {
+            AppEvent::DmMessagesLoaded(channel_id, messages, new_users) => {
                 for user in new_users {
                     self.store.users.insert(user.id.clone(), user);
                 }
                 self.store.current_dm_messages = messages;
                 self.is_loading_messages = false;
+
+                // Write-through: persist fetched messages to cache
+                let cache = self.cache.clone();
+                let msgs_to_cache = self.store.current_dm_messages.clone();
+                tokio::spawn(async move {
+                    if let Ok(mut cache_locked) = cache.try_lock() {
+                        let _ = cache_locked.set_messages(&channel_id, &msgs_to_cache);
+                    }
+                });
             }
             AppEvent::NewMessage {
                 channel_id,
@@ -375,6 +388,16 @@ impl App {
                     tokio::spawn(async move {
                         let _ =
                             crate::api::channel::ack_message(&api_client, &ch_id, &msg_id).await;
+                    });
+
+                    // Update cache with the new message included
+                    let cache = self.cache.clone();
+                    let ch_id = channel_id.clone();
+                    let msgs_to_cache = self.store.current_dm_messages.clone();
+                    tokio::spawn(async move {
+                        if let Ok(mut cache_locked) = cache.try_lock() {
+                            let _ = cache_locked.set_messages(&ch_id, &msgs_to_cache);
+                        }
                     });
                 }
 
@@ -485,6 +508,15 @@ impl App {
                 let _ = cache_locked.set(uid, user);
             }
         }
+
+        // Persist current DM messages if we're viewing a conversation
+        if matches!(self.state, AppState::Dm)
+            && let Some(channel) = self.store.dm_channels.get(self.selected_dm_index)
+            && !self.store.current_dm_messages.is_empty()
+        {
+            let _ = cache_locked.set_messages(&channel.id, &self.store.current_dm_messages);
+        }
+
         if let Err(e) = cache_locked.dump() {
             error!("Failed to dump cache to disk: {e}");
         }

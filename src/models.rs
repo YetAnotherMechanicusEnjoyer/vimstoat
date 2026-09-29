@@ -55,7 +55,7 @@ pub struct User {
     pub status_text: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Message {
     pub id: String,
     pub author_id: String,
